@@ -12,20 +12,7 @@ import tornado.options
 import tornado.web
 import tornado.websocket
 
-################################################################################################
-##                                                                                            ##
-##                                CONFIGURATION VARIABLES                                     ##
-##                                                                                            ##
-################################################################################################
-
-
-filepath = '/srv/www/overrustlelogs.net/public/_public/Destinygg chatlog/'  # local log directory
-port = 13373                        #listening port
-linelimit = 200                     #hard limit on lines sent. currently not implemented.
-connectionlimit = 1                 #limit on how many active sessions an IP is allowed
-
-################################################################################################
-################################################################################################
+import bdgg.config as config
 
 allowedremaining = {}
 ipident = {}
@@ -191,7 +178,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             return
 
         if "Number" in json_data:
-            if int(json_data["Number"]) > linelimit:
+            if int(json_data["Number"]) > config.linelimit:
                 self.SendError("Too many lines.")
                 if "Session" in json_data:
                     return json_data["Session"]
@@ -314,7 +301,7 @@ class WordGen:    #pseudorandom name generator
         return word[:10]
 
 NameGen = WordGen()
-DestinyLog = LogSystem(filepath)
+DestinyLog = LogSystem(config.filepath)
 
 def rebuildlogsystem():
     print("Rebuilding directory index...")
@@ -325,6 +312,6 @@ if __name__ == "__main__":
     tornado.options.parse_command_line()
     app = tornado.web.Application(handlers=[(r"/ws",SocketHandler)])
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(port)
-    tornado.ioloop.PeriodicCallback(rebuildlogsystem, 3600000).start()    #rebuild log directory index every hour
+    server.listen(config.port)
+    tornado.ioloop.PeriodicCallback(rebuildlogsystem, config.rebuildinterval).start()
     tornado.ioloop.IOLoop.instance().start()

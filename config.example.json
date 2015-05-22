@@ -1,0 +1,7 @@
+{
+  "filepath": "/path/to/chat/logs/",
+  "port": 13373,
+  "linelimit": 200,
+  "connectionlimit": 1,
+  "rebuildinterval": 3600000
+}
