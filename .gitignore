@@ -1,6 +1,8 @@
 .DS_Store
 *.swp
 
+banned.txt
+
 config.json
 config.*.json
 !config.example.json

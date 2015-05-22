@@ -147,7 +147,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         if self.ipaddr in banned:
             banned.remove(self.ipaddr)
 
-        with open('banned.txt', 'r+') as fh:
+        with open('banned.txt', 'a+') as fh:
             for item in fh:
                 item = item.replace('\n','')
                 match = re.match(item, str(self.ipaddr))
@@ -193,7 +193,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
                             self.SendError("Name not found.")
                         else:
                             times = DestinyLog.ParseTimestamps(lines)
-                            self.write_message({"Type": "s", "Data": json.dumps(lines), "Times": json.dumps(times)})
+                            self.write_message({"Type": "s", "Data": lines, "Times": times})
                 else:
                     self.SendError("Did not understand query.")
             elif json_data["QueryType"] == "m":
@@ -216,7 +216,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
                                 break
 
                         ttimes, tlines = [list(x) for x in zip(*sorted(zip(ttimes, tlines), key=lambda pair: pair[0]))]
-                        self.write_message({"Type": "s", "Data": json.dumps(tlines[-num:]), "Times": json.dumps(ttimes[-num:])})
+                        self.write_message({"Type": "s", "Data": tlines[-num:], "Times": ttimes[-num:]})
 
 
             else:
