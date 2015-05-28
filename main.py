@@ -186,8 +186,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         if "QueryType" in json_data:
             if json_data["QueryType"] == "s":
                 if "Name" in json_data and "Number" in json_data:
-                    if re.search(r'^\d+$', json_data["Number"]) \
-                    and re.search(r'^[\w\d]+$', json_data["Name"]):
+                    if re.search(r'^[\w\d]+$', json_data["Name"]):
                         lines = DestinyLog.GetLastLines(json_data["Name"], int(json_data["Number"]))
                         if not lines:
                             self.SendError("Name not found.")
@@ -198,27 +197,25 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
                     self.SendError("Did not understand query.")
             elif json_data["QueryType"] == "m":
                 if "Names" in json_data and "Number" in json_data:
-                    if re.search(r'^\d+$', json_data["Number"]):
-                        num = int(json_data["Number"])
-                        tlines = []
-                        ttimes = []
-                        for name in json_data["Names"]:
-                            if re.search(r'^[\w\d]+$', name):
-                                lines = DestinyLog.GetLastLines(name, num)
-                                if not lines:
-                                    self.SendError("Name not found.")
-                                    break
-                                else:
-                                    tlines += lines
-                                    ttimes += DestinyLog.ParseTimestamps(lines)
-                            else:
-                                self.SendError("Malformed name string.")
-                                break
+                    num = int(json_data["Number"])
+                    tlines = []
+                    ttimes = []
+                    for name in json_data["Names"]:
+                        if re.search(r'^[\w\d]+$', name):
+                            lines = DestinyLog.GetLastLines(name, num)
+                            if lines:
+                                tlines += lines
+                                ttimes += DestinyLog.ParseTimestamps(lines)
+                        else:
+                            self.SendError("Malformed name string.")
+                            break
 
-                        ttimes, tlines = [list(x) for x in zip(*sorted(zip(ttimes, tlines), key=lambda pair: pair[0]))]
+                    messages = [list(x) for x in zip(*sorted(zip(ttimes, tlines), key=lambda pair: pair[0]))]
+                    if messages:
+                        ttimes, tlines = messages
                         self.write_message({"Type": "s", "Data": tlines[-num:], "Times": ttimes[-num:]})
-
-
+                    else:
+                        self.SendError("Names not found.")
             else:
                 self.SendError("Did not understand query.")
 
