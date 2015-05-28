@@ -1,7 +1,10 @@
 .DS_Store
 *.swp
+*.pyc
+*.pyo
 
 banned.txt
+chatlogs/
 
 config.json
 config.*.json
