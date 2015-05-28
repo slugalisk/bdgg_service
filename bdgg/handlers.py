@@ -1,4 +1,22 @@
+import datetime
+import json
+import re
+import tornado.websocket
+
+import bdgg.config as config
+import bdgg.wordgen as wordgen
+
+allowedremaining = {}
+ipident = {}
+banned = set()
+
+def TimeStr():
+    return '['+str(datetime.datetime.now()).split('.',1)[0]+'] '
+
 class SocketHandler(tornado.websocket.WebSocketHandler):
+    def initialize(self, destinylog):
+        self.__destinylog = destinylog
+
     def check_origin(self, origin):
         return True
 
@@ -30,7 +48,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             self.hoststr = "(localhost):"
         else:
             if not self.ipaddr in ipident:
-                ipident[self.ipaddr] = NameGen.generate(self.ipaddr)
+                ipident[self.ipaddr] = wordgen.generate(self.ipaddr)
             self.hoststr = "(%s [%s]):" % (ipident[self.ipaddr], self.ipaddr)
 
         print(TimeStr() + self.hoststr + " new connection.")   #supress connection echo, because of new client model
@@ -56,11 +74,11 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             if json_data["QueryType"] == "s":
                 if "Name" in json_data and "Number" in json_data:
                     if re.search(r'^[\w\d]+$', json_data["Name"]):
-                        lines = DestinyLog.GetLastLines(json_data["Name"], int(json_data["Number"]))
+                        lines = self.__destinylog.GetLastLines(json_data["Name"], int(json_data["Number"]))
                         if not lines:
                             self.SendError("Name not found.")
                         else:
-                            times = DestinyLog.ParseTimestamps(lines)
+                            times = self.__destinylog.ParseTimestamps(lines)
                             self.write_message({"Type": "s", "Data": lines, "Times": times})
                 else:
                     self.SendError("Did not understand query.")
@@ -71,10 +89,10 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
                     ttimes = []
                     for name in json_data["Names"]:
                         if re.search(r'^[\w\d]+$', name):
-                            lines = DestinyLog.GetLastLines(name, num)
+                            lines = self.__destinylog.GetLastLines(name, num)
                             if lines:
                                 tlines += lines
-                                ttimes += DestinyLog.ParseTimestamps(lines)
+                                ttimes += self.__destinylog.ParseTimestamps(lines)
                         else:
                             self.SendError("Malformed name string.")
                             break
@@ -103,4 +121,3 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             print("%s%s %s %s" % (TimeStr(), session, self.hoststr, format(message)))
         else:
             print("%s%s %s" % (TimeStr(), self.hoststr, format(message)))
-

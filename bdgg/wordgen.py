@@ -1,3 +1,5 @@
+import random
+
 #pseudorandom name generator
 grammar = { '{lexpat}' : [  '{c}{v}{lexpat}',
                             '{v}{c}{lexpat}',
@@ -25,20 +27,20 @@ weights = { '{lexpat}' : [0.25,0.25,0.15,1],
             '{word}' : [0.5,0.5]
             }
 
-def getToken(self, token):
+def getToken(token):
     num = random.random()
     acc = 0.0
     i = 0
 
     while num > acc:
-        acc += WordGen.weights[token][i]
+        acc += weights[token][i]
         i += 1
 
     i -= 1
-    return WordGen.grammar[token][i]
+    return grammar[token][i]
 
 
-def generate(self, rseed):
+def generate(rseed):
     random.seed(rseed)
     word = ''
 
@@ -47,11 +49,11 @@ def generate(self, rseed):
         flag = 1
         while flag:
             flag = 0
-            for key in WordGen.grammarindex:
+            for key in grammarindex:
                 index = word.find(key)
 
                 while index != -1:
-                    word = word.replace(key, self.getToken(key), 1)
+                    word = word.replace(key, getToken(key), 1)
                     index = word.find(key)
                     flag = 1
     return word[:10]

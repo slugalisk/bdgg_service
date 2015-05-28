@@ -3,20 +3,14 @@
 import time
 import datetime
 import os
-import json
 import re
-import random
 import tornado.httpserver
 import tornado.ioloop
 import tornado.options
 import tornado.web
-import tornado.websocket
 
 import bdgg.config as config
-
-allowedremaining = {}
-ipident = {}
-banned = set()
+import bdgg.handlers
 
 class LogSystem:
     def builddir(self):
@@ -126,178 +120,6 @@ class LogSystem:
                 out.append(str(dtt.tm_sec + dtt.tm_min*60 + dtt.tm_hour*3600 + dtt.tm_yday*86400 + (dtt.tm_year-2010)*31536000))
         return out
 
-def TimeStr():
-    return '['+str(datetime.datetime.now()).split('.',1)[0]+'] '
-
-class SocketHandler(tornado.websocket.WebSocketHandler):
-    def check_origin(self, origin):
-        return True
-
-    def SendError(self, errstring):
-        self.write_message({"Type" : "e", "Error" : errstring})
-        print(errstring)
-
-    def open(self):
-        global allowedremaining
-        global ipident
-        global banned
-        self.hoststr = ''
-        self.ipaddr = self.request.remote_ip
-
-        if self.ipaddr in banned:
-            banned.remove(self.ipaddr)
-
-        with open('banned.txt', 'a+') as fh:
-            for item in fh:
-                item = item.replace('\n','')
-                match = re.match(item, str(self.ipaddr))
-                if match:
-                    self.close()
-                    banned.add(self.ipaddr)
-                    return
-
-
-        if self.ipaddr == '::1':
-            self.hoststr = "(localhost):"
-        else:
-            if not self.ipaddr in ipident:
-                ipident[self.ipaddr] = NameGen.generate(self.ipaddr)
-            self.hoststr = "(%s [%s]):" % (ipident[self.ipaddr], self.ipaddr)
-
-        print(TimeStr() + self.hoststr + " new connection.")   #supress connection echo, because of new client model
-
-    def on_close(self):
-        print(TimeStr() + self.hoststr + " connection closed.")
-        pass
-
-    def on_message_proc(self, message):
-        try:
-            json_data = json.loads(message)
-        except ValueError:
-            print("JSON parse failed.")
-            return
-
-        if "Number" in json_data:
-            if int(json_data["Number"]) > config.linelimit:
-                self.SendError("Too many lines.")
-                if "Session" in json_data:
-                    return json_data["Session"]
-
-        if "QueryType" in json_data:
-            if json_data["QueryType"] == "s":
-                if "Name" in json_data and "Number" in json_data:
-                    if re.search(r'^[\w\d]+$', json_data["Name"]):
-                        lines = DestinyLog.GetLastLines(json_data["Name"], int(json_data["Number"]))
-                        if not lines:
-                            self.SendError("Name not found.")
-                        else:
-                            times = DestinyLog.ParseTimestamps(lines)
-                            self.write_message({"Type": "s", "Data": lines, "Times": times})
-                else:
-                    self.SendError("Did not understand query.")
-            elif json_data["QueryType"] == "m":
-                if "Names" in json_data and "Number" in json_data:
-                    num = int(json_data["Number"])
-                    tlines = []
-                    ttimes = []
-                    for name in json_data["Names"]:
-                        if re.search(r'^[\w\d]+$', name):
-                            lines = DestinyLog.GetLastLines(name, num)
-                            if lines:
-                                tlines += lines
-                                ttimes += DestinyLog.ParseTimestamps(lines)
-                        else:
-                            self.SendError("Malformed name string.")
-                            break
-
-                    messages = [list(x) for x in zip(*sorted(zip(ttimes, tlines), key=lambda pair: pair[0]))]
-                    if messages:
-                        ttimes, tlines = messages
-                        self.write_message({"Type": "s", "Data": tlines[-num:], "Times": ttimes[-num:]})
-                    else:
-                        self.SendError("Names not found.")
-            else:
-                self.SendError("Did not understand query.")
-
-        if "Session" in json_data:
-            return json_data["Session"]
-            #self.write_message("message received")
-
-    def on_message(self,message):
-        global banned
-        if self.ipaddr in banned:
-            return
-
-        session = self.on_message_proc(message)
-
-        if session:
-            print("%s%s %s %s" % (TimeStr(), session, self.hoststr, format(message)))
-        else:
-            print("%s%s %s" % (TimeStr(), self.hoststr, format(message)))
-
-
-
-
-class WordGen:    #pseudorandom name generator
-
-    grammar = { '{lexpat}' : [  '{c}{v}{lexpat}',
-                                '{v}{c}{lexpat}',
-                                '{word}',
-                                ''
-                                ],
-                '{c}' : 'bcdfghjklmnpqrstvwxyz',
-                '{v}' : 'aeiouy',
-                '{word}' : [    '{c}{v}{c}{lexpat}',
-                                '{v}{c}{v}{lexpat}',
-                                ]
-                }
-    grammarindex = sorted(grammar.keys())
-
-    weights = { '{lexpat}' : [0.25,0.25,0.15,1],
-                '{c}' : [0.0477, 0.0477,0.0477,0.0477,0.0476,
-                        0.0476,0.0476,0.0476,0.0476,0.0476,
-                        0.0476,0.0476,0.0476,0.0476,0.0476,
-                        0.0476,0.0476,0.0476,0.0476,0.0476,
-                        0.0476
-                        ],
-                '{v}' : [   0.1667,0.1667,0.1667,0.1666,0.1667,
-                            0.1666
-                        ],
-                '{word}' : [0.5,0.5]
-                }
-
-    def getToken(self, token):
-        num = random.random()
-        acc = 0.0
-        i = 0
-
-        while num > acc:
-            acc += WordGen.weights[token][i]
-            i += 1
-
-        i -= 1
-        return WordGen.grammar[token][i]
-
-
-    def generate(self, rseed):
-        random.seed(rseed)
-        word = ''
-
-        while len(word) < 4:
-            word += '{word}'
-            flag = 1
-            while flag:
-                flag = 0
-                for key in WordGen.grammarindex:
-                    index = word.find(key)
-
-                    while index != -1:
-                        word = word.replace(key, self.getToken(key), 1)
-                        index = word.find(key)
-                        flag = 1
-        return word[:10]
-
-NameGen = WordGen()
 DestinyLog = LogSystem(config.filepath)
 
 def rebuildlogsystem():
@@ -307,7 +129,9 @@ def rebuildlogsystem():
 
 if __name__ == "__main__":
     tornado.options.parse_command_line()
-    app = tornado.web.Application(handlers=[(r"/ws",SocketHandler)])
+    app = tornado.web.Application([
+        (r"/ws" , bdgg.handlers.SocketHandler, {"destinylog": DestinyLog})
+    ])
     server = tornado.httpserver.HTTPServer(app)
     server.listen(config.port)
     tornado.ioloop.PeriodicCallback(rebuildlogsystem, config.rebuildinterval).start()
