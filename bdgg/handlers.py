@@ -34,7 +34,7 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         if self.ipaddr in banned:
             banned.remove(self.ipaddr)
 
-        with open('banned.txt', 'a+') as fh:
+        with open('banned.txt', 'r+') as fh:
             for item in fh:
                 item = item.replace('\n','')
                 match = re.match(item, str(self.ipaddr))
