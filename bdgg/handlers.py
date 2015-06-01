@@ -4,7 +4,9 @@ import re
 import tornado.websocket
 
 import bdgg.config as config
+import bdgg.crypto as crypto
 import bdgg.wordgen as wordgen
+import destinygg.users
 
 allowedremaining = {}
 ipident = {}
@@ -34,7 +36,8 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
         if self.ipaddr in banned:
             banned.remove(self.ipaddr)
 
-        with open('banned.txt', 'r+') as fh:
+        with open('banned.txt', 'a+') as fh:
+            fh.seek(0)
             for item in fh:
                 item = item.replace('\n','')
                 match = re.match(item, str(self.ipaddr))
@@ -110,6 +113,16 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
             return json_data["Session"]
             #self.write_message("message received")
 
+        if "type" in json_data and json_data["type"] == "users":
+            if json_data["action"] == "refresh":
+                self.write_message({"type": "users", "users": destinygg.users.get_all_dict()})
+            elif json_data["action"] == "update":
+                sid = crypto.decrypt(json_data["sid"])
+                destinygg.users.update(sid)
+            elif json_data["action"] == "remove":
+                sid = crypto.decrypt(json_data["sid"])
+                destinygg.users.remove(sid)
+
     def on_message(self,message):
         global banned
         if self.ipaddr in banned:
@@ -117,7 +130,8 @@ class SocketHandler(tornado.websocket.WebSocketHandler):
 
         session = self.on_message_proc(message)
 
-        if session:
-            print("%s%s %s %s" % (TimeStr(), session, self.hoststr, format(message)))
-        else:
-            print("%s%s %s" % (TimeStr(), self.hoststr, format(message)))
+        if config.debug:
+            if session:
+                print("%s%s %s %s" % (TimeStr(), session, self.hoststr, format(message)))
+            else:
+                print("%s%s %s" % (TimeStr(), self.hoststr, format(message)))

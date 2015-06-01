@@ -3,8 +3,12 @@
 *.pyc
 *.pyo
 
+*.pem
+*.pub
+
 banned.txt
 chatlogs/
+users.json
 
 config.json
 config.*.json
