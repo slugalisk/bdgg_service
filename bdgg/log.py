@@ -101,7 +101,7 @@ class LogSystem:
 
             if match:
                 if not type:
-                    addyear = str(DestinyLog.today.year) + ' ' + match.group(1)
+                    addyear = str(self.today.year) + ' ' + match.group(1)
                     dtt = time.strptime(addyear, '%Y %b %d %H:%M:%S UTC')
                 elif type == 1:
                     dtt = time.strptime(match.group(1), '%b %d %Y %H:%M:%S UTC')
