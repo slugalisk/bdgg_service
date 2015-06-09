@@ -1,19 +1,7 @@
-# server backend for better destiny.gg
-
-import time
 import datetime
-import json
 import os
 import re
-import sys
-import tornado.httpserver
-import tornado.ioloop
-import tornado.options
-import tornado.web
-
-import bdgg.config as config
-import bdgg.handlers
-import destinygg.users
+import time
 
 class LogSystem:
     def builddir(self):
@@ -122,42 +110,3 @@ class LogSystem:
 
                 out.append(str(dtt.tm_sec + dtt.tm_min*60 + dtt.tm_hour*3600 + dtt.tm_yday*86400 + (dtt.tm_year-2010)*31536000))
         return out
-
-DestinyLog = LogSystem(config.filepath)
-
-#if os.access(config.userfile, os.R_OK):
-with open(config.userfile, 'a+') as uf:
-    uf.seek(0)
-    try:
-        userdata = json.load(uf)
-        for user_json in userdata.values():
-            user = destinygg.users.User.from_json(user_json)
-            destinygg.users.add(user)
-    except ValueError as e:
-        print "Error parsing userfile: ", e
-
-def rebuildlogsystem():
-    print("Rebuilding directory index...")
-    DestinyLog.builddir()
-    DestinyLog.refreshtoday()
-
-def persist_users():
-    with open(config.userfile, 'w') as uf:
-        user_dict = {}
-        uf.write(json.dumps(destinygg.users.get_all_dict()))
-
-def on_change():
-    print "on_change"
-
-destinygg.users.add_change_handler(on_change)
-
-if __name__ == "__main__":
-    tornado.options.parse_command_line()
-    app = tornado.web.Application([
-        (r"/ws" , bdgg.handlers.SocketHandler, {"destinylog": DestinyLog})
-    ])
-    server = tornado.httpserver.HTTPServer(app)
-    server.listen(config.port)
-    tornado.ioloop.PeriodicCallback(rebuildlogsystem, config.rebuildinterval).start()
-    tornado.ioloop.PeriodicCallback(persist_users, config.persistusersinterval).start()
-    tornado.ioloop.IOLoop.instance().start()

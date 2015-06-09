@@ -3,9 +3,9 @@
   "port": 13373,
   "linelimit": 200,
   "connectionlimit": 1,
-  "rebuildinterval": 3600000,
+  "rebuildinterval": 3600,
   "privatekey": "/path/to/private/key.file",
   "userfile": "/path/to/user/file.json",
-  "persistusersinterval": 300000,
+  "persistusersinterval": 300,
   "debug": false
 }
