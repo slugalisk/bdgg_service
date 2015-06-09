@@ -1,0 +1,61 @@
+
+{
+   "controller": {
+   },
+   "workers": [
+      {
+         "type": "router",
+         "options": {
+            "pythonpath": [".."]
+         },
+         "realms": [
+            {
+               "name": "bdgg",
+               "roles": [
+                  {
+                     "name": "server",
+                     "permissions": [
+                        {
+                           "uri": "*",
+                           "publish": true,
+                           "subscribe": true,
+                           "call": true,
+                           "register": true
+                        }
+                     ]
+                  },
+                  {
+                     "name": "anonymous",
+                     "permissions": [
+                        {
+                           "uri": "*",
+                           "publish": false,
+                           "subscribe": true,
+                           "call": true,
+                           "register": false
+                        }
+                     ]
+                  }
+               ]
+            }
+         ],
+         "transports": [
+            {
+               "type": "websocket",
+               "endpoint": {
+                  "type": "tcp",
+                  "port": 13374
+               }
+            }
+         ],
+         "components": [
+            {
+               "type": "class",
+               "classname": "bdgg.handlers.SocketHandler",
+               "realm": "bdgg",
+               "role": "server"
+            }
+         ]
+      }
+   ]
+}
