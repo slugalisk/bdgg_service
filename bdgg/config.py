@@ -9,6 +9,7 @@ CONFIG_KEYS = [
     'privatekey',           #private keyfile used to decrypt sensitive message data
     'userfile',             #file used to store users' state
     'persistusersinterval', #how often to save user state file in ms
+    'overrustlelogs_host',  #overrustle logs http server host
     'debug',                #enable debug logging
 ]
 

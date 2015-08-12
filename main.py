@@ -2,9 +2,11 @@
 
 import time
 import datetime
+import httplib
 import json
 import os
 import re
+from StringIO import StringIO
 import sys
 import tornado.httpserver
 import tornado.ioloop
@@ -16,88 +18,23 @@ import bdgg.handlers
 import destinygg.users
 
 class LogSystem:
-    def builddir(self):
-        self.dirtree = {}
-        self.dirtreecase = {}
-
-        for directory in os.listdir(self.toppath):
-            monthpath = self.toppath + directory + '/userlogs/'
-            self.dirtree[directory] = [x.upper() for x in sorted(os.listdir(monthpath))]
-            self.dirtreecase[directory] = [x for x in sorted(os.listdir(monthpath))]
-
-    def refreshtoday(self):
-        self.today = datetime.datetime.now()
-
     def __init__(self, path='/'):
         self.toppath = path
         self.today = datetime.datetime.now()
         print("Building directory index...")
         self.builddir()
 
-    def SearchName(self, myname, months=0):     #returns found name, month string, and month number
-        nmonth = months
-        if nmonth == 0:     #check if name is in current month
-            monthpath = self.toppath + self.today.strftime("%B") + ' ' + str(self.today.year) + '/userlogs/'
-            dirlist = sorted(os.listdir(monthpath))
-            names = [x.upper() for x in dirlist]
-            if myname.upper() in names:     #match found! break out of loop with new name
-                return dirlist[names.index(myname.upper())], self.today.strftime("%B") + ' ' + str(self.today.year), 0
-            else:
-                nmonth += 1
-
-        while 1:    #I did this with a loop rather than iterating keys to insure order
-            prvmonth = self.today - datetime.timedelta(weeks=4*nmonth)
-            dirkey = prvmonth.strftime('%B') + ' ' + str(prvmonth.year)
-            if not dirkey in self.dirtree:  #month not found
-                return None, None, None
-            else:   #found month
-                if myname.upper() in self.dirtree[dirkey]:  #found the name, return it
-                    return self.dirtreecase[dirkey][self.dirtree[dirkey].index(myname.upper())], dirkey, nmonth
-                else:       #name not found in this month, move on
-                    nmonth += 1
-
     def GetLastLines(self, username, lines = 1):    #case-insensitive, searches all months, returns list of lines or None
-        myname = username + '.txt'
-        monthpath = self.toppath + self.today.strftime("%B") + ' ' + str(self.today.year) + '/userlogs/'
-        prvmonth = 0
-        lastlines = []
-        nlines = lines
+        conn = httplib.HTTPConnection(config.overrustlelogs_host)
+        conn.request("GET", '/api/v1/stalk/Destinygg chatlog/' + username + '/.json?limit=' + lines)
+        response = conn.getresponse()
+        data = json.load(StringIO(response.read()))
+        conn.close()
 
-        try:
-            with open(monthpath + myname, 'r') as fh:  #try simplest case first
-                splitvar = fh.read().split('\n')
-
-                lastlines += splitvar[(lines*-1-1):-1]
-                if len(lastlines) >= lines:
-                    return lastlines
-                else:
-                    nlines = lines - len(lastlines)
-        except IOError:     #didn't find the name, try to find a case-insensitive match on all previous months
-            myname, monthstr, prvmonth = self.SearchName(myname, prvmonth)
-            if not myname:
-                return None
-
-        prvmonth = 0
-        while nlines > 0:
-            myname, monthstr, prvmonth = self.SearchName(myname, prvmonth)
-            if not myname:
-                return lastlines
-            prvmonth += 1
-
-            try:
-                with open(self.toppath + monthstr + '/userlogs/' + myname, 'r') as fh:
-                    splitvar = fh.read().split('\n')
-
-                    lastlines = splitvar[(nlines*-1-1):-1] + lastlines
-                    if len(lastlines) >= lines:
-                        return lastlines
-                    else:
-                        nlines = lines - len(lastlines)
-            except IOError:
-                print('something bad heppen')   #this should never, ever happen
-                return None
-
-        return lastlines
+        if 'lines' in data:
+            return data['lines']
+        else:
+            return None
 
     def ParseTimestamps(self, lines):  #returns timestamps for lines
         out = []
@@ -110,6 +47,9 @@ class LogSystem:
             if not match:
                 match = re.search('(\[\d\d/\d\d/\d\d\d\d \d?\d:\d\d:\d\d (?:AM|PM)\])', line)
                 type = 2
+            if not match:
+                match = re.search('(\[\d\d\d\d-\d\d-\d\d \d?\d:\d\d:\d\d UTC\])', line)
+                type = 3
 
             if match:
                 if not type:
@@ -119,6 +59,8 @@ class LogSystem:
                     dtt = time.strptime(match.group(1), '%b %d %Y %H:%M:%S UTC')
                 elif type == 2:
                     dtt = time.strptime(match.group(1), '[%m/%d/%Y %I:%M:%S %p]')
+                elif type == 3:
+                    dtt = time.strptime(match.group(1), '[%Y-%m-%d %I:%M:%S UTC]')
 
                 out.append(str(dtt.tm_sec + dtt.tm_min*60 + dtt.tm_hour*3600 + dtt.tm_yday*86400 + (dtt.tm_year-2010)*31536000))
         return out
@@ -135,11 +77,6 @@ with open(config.userfile, 'a+') as uf:
             destinygg.users.add(user)
     except ValueError as e:
         print "Error parsing userfile: ", e
-
-def rebuildlogsystem():
-    print("Rebuilding directory index...")
-    DestinyLog.builddir()
-    DestinyLog.refreshtoday()
 
 def persist_users():
     with open(config.userfile, 'w') as uf:
@@ -158,6 +95,5 @@ if __name__ == "__main__":
     ])
     server = tornado.httpserver.HTTPServer(app)
     server.listen(config.port)
-    tornado.ioloop.PeriodicCallback(rebuildlogsystem, config.rebuildinterval).start()
     tornado.ioloop.PeriodicCallback(persist_users, config.persistusersinterval).start()
     tornado.ioloop.IOLoop.instance().start()

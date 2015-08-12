@@ -7,5 +7,6 @@
   "privatekey": "/path/to/private/key.file",
   "userfile": "/path/to/user/file.json",
   "persistusersinterval": 300000,
-  "debug": false
+  "debug": false,
+  "overrustlelogs_host": "overrustlelogs.net"
 }
