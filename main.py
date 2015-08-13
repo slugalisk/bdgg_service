@@ -26,7 +26,7 @@ class LogSystem:
 
     def GetLastLines(self, username, lines = 1):    #case-insensitive, searches all months, returns list of lines or None
         conn = httplib.HTTPConnection(config.overrustlelogs_host)
-        conn.request("GET", '/api/v1/stalk/Destinygg chatlog/' + username + '/.json?limit=' + lines)
+        conn.request("GET", '/api/v1/stalk/Destinygg chatlog/' + username + '.json?limit=' + lines)
         response = conn.getresponse()
         data = json.load(StringIO(response.read()))
         conn.close()
