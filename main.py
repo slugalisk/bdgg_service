@@ -60,7 +60,7 @@ class LogSystem:
                 elif type == 2:
                     dtt = time.strptime(match.group(1), '[%m/%d/%Y %I:%M:%S %p]')
                 elif type == 3:
-                    dtt = time.strptime(match.group(1), '[%Y-%m-%d %I:%M:%S UTC]')
+                    dtt = time.strptime(match.group(1), '[%Y-%m-%d %H:%M:%S UTC]')
 
                 out.append(str(dtt.tm_sec + dtt.tm_min*60 + dtt.tm_hour*3600 + dtt.tm_yday*86400 + (dtt.tm_year-2010)*31536000))
         return out
